@@ -255,16 +255,16 @@ async function loadModel() {
 
     catch(error) {
 
-        console.error(error);
+    console.error("MODEL ERROR:", error);
 
-        status.innerText =
-        "Model loading failed ❌";
+    status.innerText =
+        "MODEL ERROR ❌";
 
-        result.innerText =
-        "AI unavailable";
+    result.innerText =
+        error.message || String(error);
 
     }
-
+      
 }
 
 
