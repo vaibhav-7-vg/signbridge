@@ -1,24 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
 
 <meta charset="UTF-8">
-
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>SignBridge AI</title>
 
 <style>
-
 * {
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
 }
 
 body {
+    margin: 0;
     font-family: Arial, sans-serif;
     background: #f4f7fb;
     color: #172033;
@@ -28,20 +23,21 @@ header {
     background: #172033;
     color: white;
     text-align: center;
-    padding: 20px;
+    padding: 22px 15px;
 }
 
 header h1 {
+    margin: 0;
     font-size: 30px;
 }
 
 header p {
-    margin-top: 6px;
+    margin: 8px 0 0;
     opacity: 0.8;
 }
 
 .container {
-    max-width: 900px;
+    max-width: 850px;
     margin: auto;
     padding: 20px;
 }
@@ -50,7 +46,7 @@ header p {
     position: relative;
     width: 100%;
     aspect-ratio: 4 / 3;
-    background: black;
+    background: #000;
     border-radius: 18px;
     overflow: hidden;
 }
@@ -64,340 +60,203 @@ video {
 
 canvas {
     position: absolute;
-    top: 0;
     left: 0;
-
+    top: 0;
     width: 100%;
     height: 100%;
-
     transform: scaleX(-1);
 }
 
-.panel {
+.card {
     background: white;
-
-    margin-top: 20px;
-
-    padding: 25px;
-
+    margin-top: 18px;
+    padding: 22px;
     border-radius: 18px;
-
     text-align: center;
-
-    box-shadow:
-        0 5px 20px rgba(0,0,0,0.08);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
 }
 
 #result {
-
+    margin: 18px 0;
+    min-height: 42px;
     font-size: 32px;
-
     font-weight: bold;
-
-    margin: 20px 0;
-
     color: #2563eb;
-
-    min-height: 40px;
 }
 
 #confidence {
-
     color: #666;
-
-    margin-bottom: 15px;
-
-    min-height: 20px;
+    min-height: 22px;
 }
 
-button {
-
-    border: none;
-
-    padding: 14px 22px;
-
-    border-radius: 10px;
-
-    font-size: 16px;
-
-    color: white;
-
-    background: #2563eb;
-
-    cursor: pointer;
-}
-
-button:active {
-
-    transform: scale(0.97);
-}
-
-.status {
-
+#status {
     margin-top: 15px;
-
     color: #555;
-
     min-height: 25px;
 }
 
-.sentence-box {
+button {
+    border: 0;
+    border-radius: 10px;
+    padding: 13px 20px;
+    margin: 5px;
+    font-size: 16px;
+    color: white;
+    background: #2563eb;
+}
 
-    margin-top: 20px;
-
-    padding: 20px;
-
-    background: #ffffff;
-
-    border-radius: 18px;
-
-    box-shadow:
-        0 5px 20px rgba(0,0,0,0.08);
-
-    text-align: center;
+button:active {
+    transform: scale(0.97);
 }
 
 .sentence {
-
+    min-height: 55px;
+    padding: 15px;
     margin-top: 12px;
-
-    min-height: 50px;
-
-    padding: 12px;
-
-    background: #f1f5f9;
-
     border-radius: 10px;
-
+    background: #f1f5f9;
     font-size: 20px;
-
     font-weight: bold;
-
     word-wrap: break-word;
 }
-
-.small-buttons {
-
-    margin-top: 15px;
-}
-
-.small-buttons button {
-
-    background: #475569;
-
-    margin: 4px;
-
-}
-
 </style>
 
-
-<!-- =========================
-     MEDIAPIPE
-========================= -->
-
+<!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
-
-<!-- =========================
-     ONNX RUNTIME
-========================= -->
-
+<!-- ONNX Runtime -->
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
 </head>
 
-
 <body>
 
-
 <header>
-
-<h1>🤟 SignBridge</h1>
-
-<p>Indian Sign Language Recognition</p>
-
+    <h1>🤟 SignBridge</h1>
+    <p>Sign Language → Text</p>
 </header>
-
 
 <div class="container">
 
+    <div class="camera-box">
 
-<!-- =========================
-     CAMERA
-========================= -->
+        <video id="video" autoplay playsinline></video>
 
-<div class="camera-box">
+        <canvas id="canvas"></canvas>
 
-<video
-    id="video"
-    autoplay
-    playsinline>
-</video>
+    </div>
 
-<canvas id="canvas"></canvas>
+    <div class="card">
 
-</div>
+        <h2>Recognized Sign</h2>
 
+        <div id="result">
+            Loading AI...
+        </div>
 
-<!-- =========================
-     AI RESULT
-========================= -->
+        <div id="confidence">
+            Please wait...
+        </div>
 
-<div class="panel">
+        <button onclick="startCamera()">
+            📷 Start Camera
+        </button>
 
-<h2>Recognized Sign</h2>
+        <div id="status">
+            Loading AI model...
+        </div>
 
-<div id="result">
+    </div>
 
-Loading AI...
+    <div class="card">
 
-</div>
+        <h2>📝 Sentence</h2>
 
-<div id="confidence">
+        <div id="sentence" class="sentence">
+            Your sentence will appear here.
+        </div>
 
-Please wait...
+        <br>
 
-</div>
+        <button onclick="addSign()">
+            ➕ Add Sign
+        </button>
 
+        <button onclick="clearSentence()">
+            🗑️ Clear
+        </button>
 
-<button onclick="startCamera()">
+        <button onclick="speakSentence()">
+            🔊 Speak
+        </button>
 
-📷 Start Camera
-
-</button>
-
-
-<div
-    class="status"
-    id="status">
-
-Loading AI model...
-
-</div>
-
-</div>
-
-
-<!-- =========================
-     SENTENCE
-========================= -->
-
-<div class="sentence-box">
-
-<h2>📝 Sentence</h2>
-
-<div
-    class="sentence"
-    id="sentence">
-
-Your sentence will appear here.
-
-</div>
-
-
-<div class="small-buttons">
-
-<button onclick="addWord()">
-➕ Add Sign
-</button>
-
-<button onclick="clearSentence()">
-🗑️ Clear
-</button>
-
-<button onclick="speakSentence()">
-🔊 Speak
-</button>
-
-</div>
-
-</div>
-
+    </div>
 
 </div>
 
 
 <script>
 
+/* ================================
+   ELEMENTS
+================================ */
 
-/* =====================================================
-   BASIC ELEMENTS
-===================================================== */
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 
-const video =
-    document.getElementById("video");
-
-const canvas =
-    document.getElementById("canvas");
-
-const ctx =
-    canvas.getContext("2d");
-
-const result =
-    document.getElementById("result");
-
-const confidence =
-    document.getElementById("confidence");
-
-const status =
-    document.getElementById("status");
-
-const sentenceElement =
-    document.getElementById("sentence");
+const result = document.getElementById("result");
+const confidence = document.getElementById("confidence");
+const status = document.getElementById("status");
+const sentenceBox = document.getElementById("sentence");
 
 
-/* =====================================================
+/* ================================
+   FILES
+================================ */
+
+const MODEL_URL =
+"https://raw.githubusercontent.com/vaibhav-7-vg/signbridge/main/signbridge_model.onnx";
+
+const LABELS_URL =
+"https://raw.githubusercontent.com/vaibhav-7-vg/signbridge/main/labels.json";
+
+
+/* ================================
    VARIABLES
-===================================================== */
+================================ */
 
 let session = null;
-
 let labels = [];
-
-let cameraStarted = false;
-
 let latestPrediction = "";
-
 let sentence = [];
+let cameraStarted = false;
+let predicting = false;
 
 
-/* =====================================================
-   LOAD LABELS + MODEL
-===================================================== */
+/* ================================
+   LOAD AI
+================================ */
 
-async function loadModel() {
+async function loadAI() {
 
     try {
 
-        status.innerText =
-            "Loading labels...";
+        status.innerText = "Loading labels...";
 
+        const response =
+            await fetch(LABELS_URL);
 
-        /* Load labels */
-
-        const labelResponse =
-            await fetch("./labels.json");
-
-
-        if (!labelResponse.ok) {
-
+        if (!response.ok) {
             throw new Error(
-                "Could not load labels.json"
+                "Could not load labels"
             );
-
         }
 
-
         labels =
-            await labelResponse.json();
-
+            await response.json();
 
         console.log(
             "Labels:",
@@ -405,32 +264,27 @@ async function loadModel() {
         );
 
 
-        /* Load ONNX model */
-
         status.innerText =
             "Loading AI model...";
 
 
         session =
             await ort.InferenceSession.create(
-                "./signbridge_model.onnx"
+                MODEL_URL
             );
 
 
         console.log(
-            "Model loaded:",
-            session
+            "Model loaded successfully"
         );
 
-
         console.log(
-            "Input names:",
+            "Inputs:",
             session.inputNames
         );
 
-
         console.log(
-            "Output names:",
+            "Outputs:",
             session.outputNames
         );
 
@@ -438,53 +292,46 @@ async function loadModel() {
         status.innerText =
             "AI model loaded successfully ✅";
 
-
         result.innerText =
-            "Show your sign 🤟";
-
+            "Show your hand 🤟";
 
         confidence.innerText =
             "Ready";
 
 
-    }
-
-    catch (error) {
+    } catch (error) {
 
         console.error(
-            "MODEL LOADING ERROR:",
+            "AI LOAD ERROR:",
             error
         );
 
-
         status.innerText =
-            "MODEL ERROR ❌";
-
+            "AI loading error ❌";
 
         result.innerText =
             error.message ||
             String(error);
 
-
         confidence.innerText =
-            "Check GitHub model file";
-
+            "Model could not load";
 
     }
 
 }
 
 
-/* =====================================================
-   MEDIAPIPE HANDS
-===================================================== */
+/* ================================
+   MEDIAPIPE
+================================ */
 
 const hands =
     new Hands({
 
-        locateFile: (file) => {
+        locateFile: function(file) {
 
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            return
+            `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
 
         }
 
@@ -504,199 +351,173 @@ hands.setOptions({
 });
 
 
-/* =====================================================
-   HAND DETECTION RESULTS
-===================================================== */
+/* ================================
+   HAND RESULTS
+================================ */
 
 hands.onResults(
-    async (results) => {
+    async function(results) {
+
+        canvas.width =
+            video.videoWidth;
+
+        canvas.height =
+            video.videoHeight;
+
+
+        ctx.clearRect(
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+
+        if (
+            !results.multiHandLandmarks ||
+            results.multiHandLandmarks.length === 0
+        ) {
+
+            result.innerText =
+                "Show your hand ✋";
+
+            confidence.innerText = "";
+
+            return;
+
+        }
+
+
+        const landmarks =
+            results.multiHandLandmarks[0];
+
+
+        /* Draw hand */
+
+        drawConnectors(
+            ctx,
+            landmarks,
+            HAND_CONNECTIONS,
+            {
+                color: "#00FF00",
+                lineWidth: 4
+            }
+        );
+
+
+        drawLandmarks(
+            ctx,
+            landmarks,
+            {
+                color: "#FF0000",
+                lineWidth: 2,
+                radius: 5
+            }
+        );
+
+
+        if (!session) {
+
+            result.innerText =
+                "AI is still loading...";
+
+            return;
+
+        }
+
+
+        /*
+           Prevent multiple predictions
+           running at the same time.
+        */
+
+        if (predicting) {
+            return;
+        }
+
+        predicting = true;
+
 
         try {
 
-
-            /* Set canvas size */
-
-            canvas.width =
-                video.videoWidth;
-
-            canvas.height =
-                video.videoHeight;
-
-
-            ctx.clearRect(
-                0,
-                0,
-                canvas.width,
-                canvas.height
-            );
-
-
-            /* No hand */
-
-            if (
-                !results.multiHandLandmarks ||
-                results.multiHandLandmarks.length === 0
-            ) {
-
-                result.innerText =
-                    "Show your hand ✋";
-
-                confidence.innerText =
-                    "";
-
-                return;
-
-            }
-
-
-            /* Get first hand */
-
-            const landmarks =
-                results.multiHandLandmarks[0];
-
-
-            /* Draw connections */
-
-            drawConnectors(
-
-                ctx,
-
-                landmarks,
-
-                HAND_CONNECTIONS,
-
-                {
-                    color: "#00FF00",
-
-                    lineWidth: 4
-                }
-
-            );
-
-
-            /* Draw points */
-
-            drawLandmarks(
-
-                ctx,
-
-                landmarks,
-
-                {
-                    color: "#FF0000",
-
-                    lineWidth: 2,
-
-                    radius: 5
-                }
-
-            );
-
-
-            /* =========================================
-               CREATE 63 FEATURES
-            ========================================= */
+            /* ============================
+               63 FEATURES
+            ============================ */
 
             const features = [];
 
 
             for (
-                const point of landmarks
+                let i = 0;
+                i < landmarks.length;
+                i++
             ) {
 
                 features.push(
-                    point.x
+                    landmarks[i].x
                 );
 
                 features.push(
-                    point.y
+                    landmarks[i].y
                 );
 
                 features.push(
-                    point.z
+                    landmarks[i].z
                 );
 
             }
 
 
-            /* Check model */
+            if (features.length !== 63) {
 
-            if (!session) {
-
-                result.innerText =
-                    "AI model not ready";
-
-                return;
+                throw new Error(
+                    "Expected 63 features, got " +
+                    features.length
+                );
 
             }
 
 
-            /* =========================================
-               CREATE ONNX INPUT
-            ========================================= */
+            /* ============================
+               ONNX INPUT
+            ============================ */
 
             const input =
                 new ort.Tensor(
-
                     "float32",
-
-                    Float32Array.from(
-                        features
-                    ),
-
+                    Float32Array.from(features),
                     [1, 63]
-
                 );
 
 
-            /* Get input name */
-
-            const inputName =
-                session.inputNames[0];
-
-
-            /* =========================================
-               RUN AI MODEL
-            ========================================= */
+            /* ============================
+               RUN MODEL
+            ============================ */
 
             const output =
                 await session.run({
 
-                    [inputName]:
+                    "float_input":
                         input
 
                 });
 
 
             console.log(
-                "Prediction output:",
+                "Model output:",
                 output
             );
-              console.log(
-    "Output label:",
-    output["output_label"]
-);
-
-console.log(
-    "Output label data:",
-    output["output_label"].data
-);
-
-console.log(
-    "Input features:",
-    features
-);
 
 
-            /* =========================================
-               GET output_label
-            ========================================= */
+            /* ============================
+               GET CLASS NUMBER
+            ============================ */
 
-            const predictedLabelTensor =
+            const labelOutput =
                 output["output_label"];
 
 
-            if (!predictedLabelTensor) {
+            if (!labelOutput) {
 
                 throw new Error(
                     "output_label not found"
@@ -705,31 +526,29 @@ console.log(
             }
 
 
-            /* Get class number */
-
-            const predictedIndex =
+            const classNumber =
                 Number(
-                    predictedLabelTensor.data[0]
+                    labelOutput.data[0]
                 );
 
 
             console.log(
-                "Predicted index:",
-                predictedIndex
+                "Class:",
+                classNumber
             );
 
 
-            /* =========================================
-               CONVERT NUMBER → SIGN
-            ========================================= */
+            /* ============================
+               CLASS → SIGN
+            ============================ */
 
             if (
-                predictedIndex >= 0 &&
-                predictedIndex < labels.length
+                classNumber >= 0 &&
+                classNumber < labels.length
             ) {
 
                 latestPrediction =
-                    labels[predictedIndex];
+                    labels[classNumber];
 
 
                 result.innerText =
@@ -740,6 +559,9 @@ console.log(
                     "AI prediction ✅";
 
 
+                status.innerText =
+                    "Camera + AI running ✅";
+
             }
 
             else {
@@ -748,44 +570,48 @@ console.log(
                     "Unknown sign";
 
                 confidence.innerText =
-                    "Invalid prediction";
+                    "Invalid class";
 
             }
 
+
+        } catch (error) {
+
+            console.error(
+                "PREDICTION ERROR:",
+                error
+            );
+
+
+            status.innerText =
+                "Prediction error ❌";
+
+
+            result.innerText =
+                error.message ||
+                String(error);
+
         }
 
-        catch (error) {
 
-    console.error("PREDICTION ERROR:", error);
+        predicting = false;
 
-    status.innerText = "Prediction error ❌";
-
-    result.innerText = "ERROR: " + (
-        error.message || String(error)
-    );
-
-    confidence.innerText =
-        "AI prediction failed";
-        }
+    }
 );
 
 
-/* =====================================================
-   START CAMERA
-===================================================== */
+/* ================================
+   CAMERA
+================================ */
 
 async function startCamera() {
 
-
     if (cameraStarted) {
-
         return;
-
     }
 
 
     try {
-
 
         status.innerText =
             "Starting camera...";
@@ -796,10 +622,7 @@ async function startCamera() {
                 .getUserMedia({
 
                     video: {
-
-                        facingMode:
-                            "user"
-
+                        facingMode: "user"
                     },
 
                     audio: false
@@ -811,12 +634,8 @@ async function startCamera() {
             stream;
 
 
-        /* Wait for video */
-
         await video.play();
 
-
-        /* MediaPipe camera */
 
         const camera =
             new Camera(
@@ -826,12 +645,11 @@ async function startCamera() {
                 {
 
                     onFrame:
-                    async () => {
+                    async function() {
 
                         await hands.send({
 
-                            image:
-                                video
+                            image: video
 
                         });
 
@@ -849,17 +667,14 @@ async function startCamera() {
         camera.start();
 
 
-        cameraStarted =
-            true;
+        cameraStarted = true;
 
 
         status.innerText =
             "Camera + AI running ✅";
 
 
-    }
-
-    catch (error) {
+    } catch (error) {
 
         console.error(
             "CAMERA ERROR:",
@@ -880,15 +695,14 @@ async function startCamera() {
 }
 
 
-/* =====================================================
-   ADD CURRENT SIGN TO SENTENCE
-===================================================== */
+/* ================================
+   SENTENCE
+================================ */
 
-function addWord() {
-
+function addSign() {
 
     if (
-        !latestPrediction ||
+        latestPrediction === "" ||
         latestPrediction === "Unknown sign"
     ) {
 
@@ -902,47 +716,26 @@ function addWord() {
     );
 
 
-    updateSentence();
-
-}
-
-
-/* =====================================================
-   UPDATE SENTENCE
-===================================================== */
-
-function updateSentence() {
-
-    sentenceElement.innerText =
+    sentenceBox.innerText =
         sentence.join(" ");
 
 }
 
 
-/* =====================================================
-   CLEAR SENTENCE
-===================================================== */
-
 function clearSentence() {
 
     sentence = [];
 
-    updateSentence();
+    sentenceBox.innerText =
+        "Your sentence will appear here.";
 
 }
 
 
-/* =====================================================
-   TEXT TO SPEECH
-===================================================== */
-
 function speakSentence() {
 
-
     if (sentence.length === 0) {
-
         return;
-
     }
 
 
@@ -956,8 +749,7 @@ function speakSentence() {
         );
 
 
-    speech.lang =
-        "en-IN";
+    speech.lang = "en-IN";
 
 
     window.speechSynthesis.speak(
@@ -967,15 +759,13 @@ function speakSentence() {
 }
 
 
-/* =====================================================
+/* ================================
    START
-===================================================== */
+================================ */
 
-loadModel();
-
+loadAI();
 
 </script>
 
 </body>
-
 </html>
