@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>SignBridge Dataset Collector</title>
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>SignBridge AI</title>
 
 <style>
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -26,6 +30,15 @@ header {
     padding: 20px;
 }
 
+header h1 {
+    font-size: 30px;
+}
+
+header p {
+    margin-top: 5px;
+    opacity: .8;
+}
+
 .container {
     max-width: 900px;
     margin: auto;
@@ -35,7 +48,7 @@ header {
 .camera-box {
     position: relative;
     width: 100%;
-    aspect-ratio: 4/3;
+    aspect-ratio: 4 / 3;
     background: black;
     border-radius: 18px;
     overflow: hidden;
@@ -50,7 +63,8 @@ video {
 
 canvas {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     transform: scaleX(-1);
@@ -59,157 +73,207 @@ canvas {
 .panel {
     background: white;
     margin-top: 20px;
-    padding: 20px;
-    border-radius: 15px;
+    padding: 25px;
+    border-radius: 18px;
     text-align: center;
     box-shadow: 0 5px 20px rgba(0,0,0,.08);
 }
 
-select {
-    padding: 12px;
-    font-size: 17px;
-    border-radius: 8px;
-    margin: 10px;
+#result {
+    font-size: 32px;
+    font-weight: bold;
+    margin: 20px 0;
+    color: #2563eb;
+}
+
+#confidence {
+    color: #666;
+    margin-bottom: 15px;
 }
 
 button {
     border: none;
-    padding: 13px 20px;
+    padding: 14px 22px;
     border-radius: 10px;
     font-size: 16px;
     color: white;
-    margin: 5px;
+    background: #2563eb;
     cursor: pointer;
 }
 
-.start {
-    background: #2563eb;
+button:active {
+    transform: scale(.97);
 }
 
-.capture {
-    background: #16a34a;
-}
-
-.download {
-    background: #7c3aed;
-}
-
-.clear {
-    background: #dc2626;
-}
-
-#result {
-    font-size: 24px;
-    font-weight: bold;
-    margin: 15px;
-}
-
-.counter {
+.status {
     margin-top: 15px;
-    line-height: 1.8;
+    color: #555;
 }
+
 </style>
 
+<!-- MediaPipe -->
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+<!-- ONNX Runtime -->
+
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
 </head>
 
 <body>
 
 <header>
-    <h1>🤟 SignBridge</h1>
-    <p>AI Training Data Collector</p>
+
+<h1>🤟 SignBridge</h1>
+
+<p>Indian Sign Language Recognition</p>
+
 </header>
+
 
 <div class="container">
 
-    <div class="camera-box">
 
-        <video id="video" autoplay playsinline></video>
+<div class="camera-box">
 
-        <canvas id="canvas"></canvas>
+<video id="video"
+       autoplay
+       playsinline>
+</video>
 
-    </div>
-
-    <div class="panel">
-
-        <h2>Select Sign</h2>
-
-        <select id="label">
-
-            <option value="HELLO">HELLO</option>
-
-            <option value="THANK_YOU">
-                THANK YOU
-            </option>
-
-            <option value="YES">YES</option>
-
-            <option value="NO">NO</option>
-
-            <option value="HELP">HELP</option>
-
-        </select>
-
-        <br>
-
-        <button class="start" onclick="startCamera()">
-            📷 Start Camera
-        </button>
-
-        <button class="capture" onclick="captureData()">
-            📸 Capture
-        </button>
-
-        <button class="download" onclick="downloadData()">
-            ⬇️ Download Dataset
-        </button>
-
-        <button class="clear" onclick="clearData()">
-            🗑️ Clear Dataset
-        </button>
-
-        <div id="result">
-            Camera not started
-        </div>
-
-        <div class="counter" id="counter">
-            HELLO: 0<br>
-            THANK YOU: 0<br>
-            YES: 0<br>
-            NO: 0<br>
-            HELP: 0
-        </div>
-
-    </div>
+<canvas id="canvas"></canvas>
 
 </div>
 
+
+<div class="panel">
+
+<h2>Recognized Sign</h2>
+
+<div id="result">
+
+Loading AI...
+
+</div>
+
+<div id="confidence">
+
+Please wait...
+
+</div>
+
+<button onclick="startCamera()">
+
+📷 Start Camera
+
+</button>
+
+<div class="status"
+     id="status">
+
+Loading model...
+
+</div>
+
+</div>
+
+</div>
+
+
 <script>
 
-const video = document.getElementById("video");
+const video =
+document.getElementById("video");
 
-const canvas = document.getElementById("canvas");
+const canvas =
+document.getElementById("canvas");
 
-const ctx = canvas.getContext("2d");
+const ctx =
+canvas.getContext("2d");
 
-const result = document.getElementById("result");
+const result =
+document.getElementById("result");
 
-let latestLandmarks = null;
+const confidence =
+document.getElementById("confidence");
 
-let dataset = JSON.parse(
-    localStorage.getItem("signbridgeDataset") || "[]"
-);
+const status =
+document.getElementById("status");
 
 
-/* ================================
-   MEDIAPIPE
-================================ */
+let session = null;
 
-const hands = new Hands({
+let labels = [];
+
+let latestPrediction = "";
+
+let cameraStarted = false;
+
+
+/* ===================================
+   LOAD MODEL
+=================================== */
+
+async function loadModel() {
+
+    try {
+
+        status.innerText =
+        "Loading AI model...";
+
+        labels = await fetch(
+            "labels.json"
+        ).then(
+            response => response.json()
+        );
+
+
+        session =
+        await ort.InferenceSession.create(
+            "signbridge_model.onnx"
+        );
+
+
+        status.innerText =
+        "AI model loaded successfully ✅";
+
+        result.innerText =
+        "Show your sign 🤟";
+
+        confidence.innerText =
+        "";
+
+    }
+
+    catch(error) {
+
+        console.error(error);
+
+        status.innerText =
+        "Model loading failed ❌";
+
+        result.innerText =
+        "AI unavailable";
+
+    }
+
+}
+
+
+/* ===================================
+   MEDIAPIPE HANDS
+=================================== */
+
+const hands =
+new Hands({
 
     locateFile: (file) => {
 
@@ -218,6 +282,7 @@ const hands = new Hands({
     }
 
 });
+
 
 hands.setOptions({
 
@@ -232,11 +297,19 @@ hands.setOptions({
 });
 
 
-hands.onResults((results) => {
+/* ===================================
+   HAND RESULTS
+=================================== */
 
-    canvas.width = video.videoWidth;
+hands.onResults(async (results) => {
 
-    canvas.height = video.videoHeight;
+
+    canvas.width =
+    video.videoWidth;
+
+    canvas.height =
+    video.videoHeight;
+
 
     ctx.clearRect(
         0,
@@ -247,89 +320,194 @@ hands.onResults((results) => {
 
 
     if (
-        results.multiHandLandmarks &&
-        results.multiHandLandmarks.length > 0
+        !results.multiHandLandmarks ||
+        results.multiHandLandmarks.length === 0
     ) {
 
-        latestLandmarks =
-            results.multiHandLandmarks[0];
-
         result.innerText =
-            "✋ Hand detected - Ready to capture";
+        "Show your hand ✋";
 
-        result.style.color = "#16a34a";
+        confidence.innerText =
+        "";
 
-
-        drawConnectors(
-            ctx,
-            latestLandmarks,
-            HAND_CONNECTIONS,
-            {
-                color: "#00FF00",
-                lineWidth: 4
-            }
-        );
-
-
-        drawLandmarks(
-            ctx,
-            latestLandmarks,
-            {
-                color: "#FF0000",
-                lineWidth: 2,
-                radius: 5
-            }
-        );
+        return;
 
     }
 
-    else {
 
-        latestLandmarks = null;
+    const landmarks =
+    results.multiHandLandmarks[0];
 
-        result.innerText =
-            "Show your hand ✋";
 
-        result.style.color =
-            "#2563eb";
+    /* Draw hand */
+
+    drawConnectors(
+        ctx,
+        landmarks,
+        HAND_CONNECTIONS,
+        {
+            color: "#00FF00",
+            lineWidth: 4
+        }
+    );
+
+
+    drawLandmarks(
+        ctx,
+        landmarks,
+        {
+            color: "#FF0000",
+            lineWidth: 2,
+            radius: 5
+        }
+    );
+
+
+    /* ===================================
+       CREATE 63 FEATURES
+    =================================== */
+
+    const features = [];
+
+
+    for (
+        const point of landmarks
+    ) {
+
+        features.push(point.x);
+
+        features.push(point.y);
+
+        features.push(point.z);
 
     }
 
-    updateCounter();
+
+    if (!session) {
+
+        return;
+
+    }
+
+
+    try {
+
+        const input =
+        new ort.Tensor(
+            "float32",
+            Float32Array.from(features),
+            [1, 63]
+        );
+
+
+        const inputName =
+        session.inputNames[0];
+
+
+        const output =
+        await session.run({
+
+            [inputName]: input
+
+        });
+
+
+        const outputName =
+        session.outputNames[0];
+
+
+        const prediction =
+        output[outputName];
+
+
+        let predictedIndex;
+
+
+        if (prediction.data) {
+
+            predictedIndex =
+            Number(prediction.data[0]);
+
+        }
+
+
+        if (
+            predictedIndex >= 0 &&
+            predictedIndex < labels.length
+        ) {
+
+            latestPrediction =
+            labels[predictedIndex];
+
+            result.innerText =
+            latestPrediction;
+
+            confidence.innerText =
+            "AI prediction";
+
+        }
+
+    }
+
+    catch(error) {
+
+        console.error(error);
+
+        status.innerText =
+        "Prediction error";
+
+    }
 
 });
 
 
-/* ================================
-   CAMERA
-================================ */
+/* ===================================
+   START CAMERA
+=================================== */
 
 async function startCamera() {
 
+
+    if (cameraStarted) {
+
+        return;
+
+    }
+
+
     try {
 
+
         const stream =
-            await navigator.mediaDevices.getUserMedia({
+        await navigator.mediaDevices.getUserMedia({
 
-                video: {
-                    facingMode: "user"
-                },
+            video: {
 
-                audio: false
+                facingMode: "user"
 
-            });
+            },
+
+            audio: false
+
+        });
 
 
-        video.srcObject = stream;
+        video.srcObject =
+        stream;
 
 
         const camera =
-            new Camera(video, {
+        new Camera(
+            video,
+            {
 
-                onFrame: async () => {
+                onFrame:
+                async () => {
 
                     await hands.send({
+
                         image: video
+
                     });
 
                 },
@@ -338,14 +516,20 @@ async function startCamera() {
 
                 height: 480
 
-            });
+            }
+        );
 
 
         camera.start();
 
 
-        result.innerText =
-            "Show your hand ✋";
+        cameraStarted =
+        true;
+
+
+        status.innerText =
+        "Camera + AI running ✅";
+
 
     }
 
@@ -353,202 +537,19 @@ async function startCamera() {
 
         console.error(error);
 
-        result.innerText =
-            "Camera error ❌";
+        status.innerText =
+        "Camera permission denied ❌";
 
     }
 
 }
 
 
-/* ================================
-   CAPTURE LANDMARK DATA
-================================ */
-
-function captureData() {
-
-    if (!latestLandmarks) {
-
-        alert(
-            "No hand detected. Show your hand first."
-        );
-
-        return;
-
-    }
-
-
-    const label =
-        document.getElementById("label").value;
-
-
-    /*
-       Convert 21 landmarks into
-       simple X/Y/Z values.
-    */
-
-    const landmarks =
-        latestLandmarks.map(point => ({
-
-            x: point.x,
-
-            y: point.y,
-
-            z: point.z
-
-        }));
-
-
-    dataset.push({
-
-        label: label,
-
-        landmarks: landmarks,
-
-        time: Date.now()
-
-    });
-
-
-    localStorage.setItem(
-        "signbridgeDataset",
-        JSON.stringify(dataset)
-    );
-
-
-    result.innerText =
-        "✅ Captured " + label;
-
-
-    updateCounter();
-
-}
-
-
-/* ================================
-   COUNTER
-================================ */
-
-function updateCounter() {
-
-    const counts = {
-
-        HELLO: 0,
-
-        THANK_YOU: 0,
-
-        YES: 0,
-
-        NO: 0,
-
-        HELP: 0
-
-    };
-
-
-    dataset.forEach(item => {
-
-        if (counts[item.label] !== undefined) {
-
-            counts[item.label]++;
-
-        }
-
-    });
-
-
-    document.getElementById("counter").innerHTML =
-
-        "HELLO: " + counts.HELLO + "<br>" +
-
-        "THANK YOU: " + counts.THANK_YOU + "<br>" +
-
-        "YES: " + counts.YES + "<br>" +
-
-        "NO: " + counts.NO + "<br>" +
-
-        "HELP: " + counts.HELP;
-
-}
-
-
-/* ================================
-   DOWNLOAD DATASET
-================================ */
-
-function downloadData() {
-
-    if (dataset.length === 0) {
-
-        alert("Dataset is empty.");
-
-        return;
-
-    }
-
-
-    const data =
-        JSON.stringify(dataset, null, 2);
-
-
-    const blob =
-        new Blob(
-            [data],
-            {type: "application/json"}
-        );
-
-
-    const url =
-        URL.createObjectURL(blob);
-
-
-    const a =
-        document.createElement("a");
-
-
-    a.href = url;
-
-    a.download =
-        "signbridge_dataset.json";
-
-
-    a.click();
-
-
-    URL.revokeObjectURL(url);
-
-}
-
-
-/* ================================
-   CLEAR DATASET
-================================ */
-
-function clearData() {
-
-    if (
-        confirm(
-            "Delete all collected data?"
-        )
-    ) {
-
-        dataset = [];
-
-        localStorage.removeItem(
-            "signbridgeDataset"
-        );
-
-        updateCounter();
-
-        result.innerText =
-            "Dataset cleared";
-
-    }
-
-}
-
-
-updateCounter();
+/* ===================================
+   START MODEL
+=================================== */
+
+loadModel();
 
 </script>
 
