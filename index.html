@@ -412,43 +412,26 @@ hands.onResults(async (results) => {
         });
 
 
-        const outputName =
-        session.outputNames[0];
+        
+const output = await session.run({
+    [inputName]: input
+});
 
+const predictedLabelTensor = output["output_label"];
 
-        const prediction =
-        output[outputName];
+let predictedIndex = Number(
+    predictedLabelTensor.data[0]
+);
 
+if (
+    predictedIndex >= 0 &&
+    predictedIndex < labels.length
+) {
+    result.innerText = labels[predictedIndex];
 
-        let predictedIndex;
-
-
-        if (prediction.data) {
-
-            predictedIndex =
-            Number(prediction.data[0]);
-
-        }
-
-
-        if (
-            predictedIndex >= 0 &&
-            predictedIndex < labels.length
-        ) {
-
-            latestPrediction =
-            labels[predictedIndex];
-
-            result.innerText =
-            latestPrediction;
-
-            confidence.innerText =
-            "AI prediction";
-
-        }
-
-    }
-
+    confidence.innerText =
+        "AI prediction ✅";
+      }
     catch(error) {
 
         console.error(error);
