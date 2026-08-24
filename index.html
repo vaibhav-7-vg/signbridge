@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>SignBridge - Hand Detection</title>
+<title>SignBridge Dataset Collector</title>
 
 <style>
 * {
@@ -26,15 +26,6 @@ header {
     padding: 20px;
 }
 
-header h1 {
-    font-size: 28px;
-}
-
-header p {
-    margin-top: 6px;
-    opacity: 0.8;
-}
-
 .container {
     max-width: 900px;
     margin: auto;
@@ -44,7 +35,7 @@ header p {
 .camera-box {
     position: relative;
     width: 100%;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 4/3;
     background: black;
     border-radius: 18px;
     overflow: hidden;
@@ -59,58 +50,66 @@ video {
 
 canvas {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
     width: 100%;
     height: 100%;
     transform: scaleX(-1);
 }
 
-.status {
+.panel {
     background: white;
     margin-top: 20px;
     padding: 20px;
     border-radius: 15px;
     text-align: center;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+    box-shadow: 0 5px 20px rgba(0,0,0,.08);
 }
 
-#result {
-    font-size: 25px;
-    font-weight: bold;
-    color: #2563eb;
-    margin: 15px 0;
+select {
+    padding: 12px;
+    font-size: 17px;
+    border-radius: 8px;
+    margin: 10px;
 }
 
 button {
     border: none;
-    background: #2563eb;
-    color: white;
-    padding: 14px 25px;
+    padding: 13px 20px;
     border-radius: 10px;
     font-size: 16px;
+    color: white;
+    margin: 5px;
     cursor: pointer;
 }
 
-button:active {
-    transform: scale(0.97);
+.start {
+    background: #2563eb;
 }
 
-.info {
-    background: white;
-    padding: 20px;
-    border-radius: 15px;
-    margin-top: 20px;
-    line-height: 1.6;
+.capture {
+    background: #16a34a;
 }
 
-.loading {
-    margin-top: 10px;
-    color: #666;
+.download {
+    background: #7c3aed;
+}
+
+.clear {
+    background: #dc2626;
+}
+
+#result {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 15px;
+}
+
+.counter {
+    margin-top: 15px;
+    line-height: 1.8;
 }
 </style>
 
-<!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
@@ -122,7 +121,7 @@ button:active {
 
 <header>
     <h1>🤟 SignBridge</h1>
-    <p>Sign Language → Text</p>
+    <p>AI Training Data Collector</p>
 </header>
 
 <div class="container">
@@ -135,33 +134,55 @@ button:active {
 
     </div>
 
-    <div class="status">
+    <div class="panel">
 
-        <h2>Hand Detection</h2>
+        <h2>Select Sign</h2>
+
+        <select id="label">
+
+            <option value="HELLO">HELLO</option>
+
+            <option value="THANK_YOU">
+                THANK YOU
+            </option>
+
+            <option value="YES">YES</option>
+
+            <option value="NO">NO</option>
+
+            <option value="HELP">HELP</option>
+
+        </select>
+
+        <br>
+
+        <button class="start" onclick="startCamera()">
+            📷 Start Camera
+        </button>
+
+        <button class="capture" onclick="captureData()">
+            📸 Capture
+        </button>
+
+        <button class="download" onclick="downloadData()">
+            ⬇️ Download Dataset
+        </button>
+
+        <button class="clear" onclick="clearData()">
+            🗑️ Clear Dataset
+        </button>
 
         <div id="result">
             Camera not started
         </div>
 
-        <button onclick="startCamera()">
-            📷 Start Camera
-        </button>
-
-        <div class="loading" id="loading">
-            AI model loading...
+        <div class="counter" id="counter">
+            HELLO: 0<br>
+            THANK YOU: 0<br>
+            YES: 0<br>
+            NO: 0<br>
+            HELP: 0
         </div>
-
-    </div>
-
-    <div class="info">
-
-        <h3>Current Stage</h3>
-
-        <p>
-            SignBridge is currently learning to detect a human hand.
-            Once hand detection works, we will use the detected hand
-            landmarks to recognize sign language.
-        </p>
 
     </div>
 
@@ -170,18 +191,23 @@ button:active {
 <script>
 
 const video = document.getElementById("video");
+
 const canvas = document.getElementById("canvas");
+
 const ctx = canvas.getContext("2d");
 
 const result = document.getElementById("result");
-const loading = document.getElementById("loading");
 
-let cameraStarted = false;
+let latestLandmarks = null;
+
+let dataset = JSON.parse(
+    localStorage.getItem("signbridgeDataset") || "[]"
+);
 
 
-/* -------------------------------
-   MEDIAPIPE HAND MODEL
--------------------------------- */
+/* ================================
+   MEDIAPIPE
+================================ */
 
 const hands = new Hands({
 
@@ -193,27 +219,23 @@ const hands = new Hands({
 
 });
 
-
 hands.setOptions({
 
-    maxNumHands: 2,
+    maxNumHands: 1,
 
     modelComplexity: 1,
 
-    minDetectionConfidence: 0.5,
+    minDetectionConfidence: 0.6,
 
-    minTrackingConfidence: 0.5
+    minTrackingConfidence: 0.6
 
 });
 
 
-/* -------------------------------
-   WHEN HAND IS DETECTED
--------------------------------- */
-
 hands.onResults((results) => {
 
     canvas.width = video.videoWidth;
+
     canvas.height = video.videoHeight;
 
     ctx.clearRect(
@@ -229,64 +251,62 @@ hands.onResults((results) => {
         results.multiHandLandmarks.length > 0
     ) {
 
-        result.innerText = "✋ Hand detected ✅";
+        latestLandmarks =
+            results.multiHandLandmarks[0];
+
+        result.innerText =
+            "✋ Hand detected - Ready to capture";
 
         result.style.color = "#16a34a";
 
 
-        /* Draw detected hand */
+        drawConnectors(
+            ctx,
+            latestLandmarks,
+            HAND_CONNECTIONS,
+            {
+                color: "#00FF00",
+                lineWidth: 4
+            }
+        );
 
-        for (
-            const landmarks of results.multiHandLandmarks
-        ) {
 
-            drawConnectors(
-                ctx,
-                landmarks,
-                HAND_CONNECTIONS,
-                {
-                    color: "#00FF00",
-                    lineWidth: 4
-                }
-            );
-
-            drawLandmarks(
-                ctx,
-                landmarks,
-                {
-                    color: "#FF0000",
-                    lineWidth: 2,
-                    radius: 5
-                }
-            );
-
-        }
-
-    } else {
-
-        result.innerText = "No hand detected";
-
-        result.style.color = "#2563eb";
+        drawLandmarks(
+            ctx,
+            latestLandmarks,
+            {
+                color: "#FF0000",
+                lineWidth: 2,
+                radius: 5
+            }
+        );
 
     }
+
+    else {
+
+        latestLandmarks = null;
+
+        result.innerText =
+            "Show your hand ✋";
+
+        result.style.color =
+            "#2563eb";
+
+    }
+
+    updateCounter();
 
 });
 
 
-/* -------------------------------
-   START CAMERA
--------------------------------- */
+/* ================================
+   CAMERA
+================================ */
 
 async function startCamera() {
 
-    if (cameraStarted) {
-        return;
-    }
-
     try {
-
-        loading.innerText =
-            "Starting camera and AI...";
 
         const stream =
             await navigator.mediaDevices.getUserMedia({
@@ -324,33 +344,211 @@ async function startCamera() {
         camera.start();
 
 
-        cameraStarted = true;
-
-        loading.innerText =
-            "AI hand detection is running";
-
-
         result.innerText =
             "Show your hand ✋";
 
-        result.style.color =
-            "#2563eb";
-
     }
 
-    catch (error) {
+    catch(error) {
 
         console.error(error);
 
         result.innerText =
-            "Camera permission denied ❌";
-
-        loading.innerText =
-            error.message;
+            "Camera error ❌";
 
     }
 
 }
+
+
+/* ================================
+   CAPTURE LANDMARK DATA
+================================ */
+
+function captureData() {
+
+    if (!latestLandmarks) {
+
+        alert(
+            "No hand detected. Show your hand first."
+        );
+
+        return;
+
+    }
+
+
+    const label =
+        document.getElementById("label").value;
+
+
+    /*
+       Convert 21 landmarks into
+       simple X/Y/Z values.
+    */
+
+    const landmarks =
+        latestLandmarks.map(point => ({
+
+            x: point.x,
+
+            y: point.y,
+
+            z: point.z
+
+        }));
+
+
+    dataset.push({
+
+        label: label,
+
+        landmarks: landmarks,
+
+        time: Date.now()
+
+    });
+
+
+    localStorage.setItem(
+        "signbridgeDataset",
+        JSON.stringify(dataset)
+    );
+
+
+    result.innerText =
+        "✅ Captured " + label;
+
+
+    updateCounter();
+
+}
+
+
+/* ================================
+   COUNTER
+================================ */
+
+function updateCounter() {
+
+    const counts = {
+
+        HELLO: 0,
+
+        THANK_YOU: 0,
+
+        YES: 0,
+
+        NO: 0,
+
+        HELP: 0
+
+    };
+
+
+    dataset.forEach(item => {
+
+        if (counts[item.label] !== undefined) {
+
+            counts[item.label]++;
+
+        }
+
+    });
+
+
+    document.getElementById("counter").innerHTML =
+
+        "HELLO: " + counts.HELLO + "<br>" +
+
+        "THANK YOU: " + counts.THANK_YOU + "<br>" +
+
+        "YES: " + counts.YES + "<br>" +
+
+        "NO: " + counts.NO + "<br>" +
+
+        "HELP: " + counts.HELP;
+
+}
+
+
+/* ================================
+   DOWNLOAD DATASET
+================================ */
+
+function downloadData() {
+
+    if (dataset.length === 0) {
+
+        alert("Dataset is empty.");
+
+        return;
+
+    }
+
+
+    const data =
+        JSON.stringify(dataset, null, 2);
+
+
+    const blob =
+        new Blob(
+            [data],
+            {type: "application/json"}
+        );
+
+
+    const url =
+        URL.createObjectURL(blob);
+
+
+    const a =
+        document.createElement("a");
+
+
+    a.href = url;
+
+    a.download =
+        "signbridge_dataset.json";
+
+
+    a.click();
+
+
+    URL.revokeObjectURL(url);
+
+}
+
+
+/* ================================
+   CLEAR DATASET
+================================ */
+
+function clearData() {
+
+    if (
+        confirm(
+            "Delete all collected data?"
+        )
+    ) {
+
+        dataset = [];
+
+        localStorage.removeItem(
+            "signbridgeDataset"
+        );
+
+        updateCounter();
+
+        result.innerText =
+            "Dataset cleared";
+
+    }
+
+}
+
+
+updateCounter();
 
 </script>
 
