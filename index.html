@@ -457,39 +457,87 @@ const index =
 Number(
 label.data[0]
 );
+/* =====================================
+   AI PREDICTION
+===================================== */
 
+if (!session) {
 
-if (
-index >= 0 &&
-index < labels.length
-) {
+    result.innerText =
+        "AI model not loaded";
 
-result.innerText =
-labels[index];
-
-status.innerText =
-"AI prediction ✅";
+    return;
 
 }
 
+try {
+
+    const input =
+        new ort.Tensor(
+            "float32",
+            Float32Array.from(features),
+            [1, 63]
+        );
+
+    const output =
+        await session.run({
+
+            "float_input": input
+
+        });
+
+    console.log(
+        "MODEL OUTPUT:",
+        output
+    );
+
+    const label =
+        output["output_label"];
+
+    if (!label) {
+
+        throw new Error(
+            "output_label not found"
+        );
+
+    }
+
+    const index =
+        Number(label.data[0]);
+
+    console.log(
+        "PREDICTED CLASS:",
+        index
+    );
+
+    if (
+        index >= 0 &&
+        index < labels.length
+    ) {
+
+        result.innerText =
+            labels[index];
+
+        status.innerText =
+            "AI prediction ✅";
+
+    }
+
+} catch (error) {
+
+    console.error(
+        "PREDICTION ERROR:",
+        error
+    );
+
+    result.innerText =
+        "Prediction error ❌";
+
+    status.innerText =
+        error.message ||
+        String(error);
+
 }
-);
-
-
-}
-
-catch(error) {
-
-console.error(
-"Prediction error:",
-error
-);
-
-}
-
-});
-
-
 /* =====================================
    CAMERA
 ===================================== */
