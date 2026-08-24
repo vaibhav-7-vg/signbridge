@@ -756,23 +756,17 @@ console.log(
 
         catch (error) {
 
-            console.error(
-                "PREDICTION ERROR:",
-                error
-            );
+    console.error("PREDICTION ERROR:", error);
 
+    status.innerText = "Prediction error ❌";
 
-            status.innerText =
-                "Prediction error ❌";
+    result.innerText = "ERROR: " + (
+        error.message || String(error)
+    );
 
-
-            result.innerText =
-                error.message ||
-                String(error);
-
+    confidence.innerText =
+        "AI prediction failed";
         }
-
-    }
 );
 
 
