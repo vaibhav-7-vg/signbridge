@@ -186,6 +186,9 @@ Please wait...
 <button onclick="startCamera()">
 📷 Start Camera
 </button>
+    <button onclick="flipCamera()">
+    🔄 Flip Camera
+    </button>
 
 <div id="status">
 Starting AI...
@@ -735,79 +738,61 @@ await session.run(
 /* ==========================================
    START CAMERA
 ========================================== */
+let currentFacingMode = "environment";
+let currentStream = null;
+let camera = null;
 
 async function startCamera() {
 
-    if (cameraStarted) {
-
-        return;
-
-    }
-
-
     try {
 
-        status.innerText =
-        "Opening camera...";
+        status.innerText = "Opening camera...";
 
+        // Stop previous camera
+        if (currentStream) {
+            currentStream.getTracks().forEach(track => track.stop());
+        }
 
         const stream =
-        await navigator.mediaDevices
-        .getUserMedia({
+            await navigator.mediaDevices.getUserMedia({
 
-            video: {
-                facingMode: "user"
-            },
+                video: {
+                    facingMode: currentFacingMode
+                },
 
-            audio: false
+                audio: false
+            });
 
-        });
+        currentStream = stream;
 
-
-        video.srcObject =
-        stream;
-
+        video.srcObject = stream;
 
         await video.play();
 
-
-        const camera =
-        new Camera(
-
+        camera = new Camera(
             video,
-
             {
-
-                onFrame:
-                async function() {
+                onFrame: async function() {
 
                     await hands.send({
-
                         image: video
-
                     });
 
                 },
 
                 width: 640,
-
                 height: 480
-
             }
-
         );
-
 
         camera.start();
 
-
-        cameraStarted =
-        true;
-
+        cameraStarted = true;
 
         status.innerText =
-        "Camera running ✅";
-
+            currentFacingMode === "environment"
+                ? "Back camera running ✅"
+                : "Front camera running ✅";
 
     }
 
@@ -818,20 +803,23 @@ async function startCamera() {
             error
         );
 
-
         status.innerText =
-        "Camera error ❌";
-
+            "Camera error ❌";
 
         result.innerText =
-        error.message ||
-        String(error);
-
+            error.message ||
+            String(error);
     }
-
 }
+async function flipCamera() {
 
+    currentFacingMode =
+        currentFacingMode === "environment"
+            ? "user"
+            : "environment";
 
+    await startCamera();
+    }
 /* ==========================================
    SENTENCE FUNCTIONS
 ========================================== */
