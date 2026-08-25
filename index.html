@@ -626,12 +626,13 @@ async function(results) {
            RUN MODEL
         ====================================== */
 
-        const feeds = {};
-
-feeds["float_input"] = input;
-
-const output =
-await session.run(feeds);
+        const output =
+await session.run(
+    {
+        float_input: input
+    },
+    ["output_label"]
+);
 
 
         console.log(
@@ -641,7 +642,7 @@ await session.run(feeds);
 
 
         /* ======================================
-           GET PREDICTION
+           GET PREDICTION pn
         ====================================== */
 
         const labelOutput =
