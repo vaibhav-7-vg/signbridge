@@ -2,58 +2,68 @@
 <html lang="en">
 
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>SignBridge AI</title>
+<title>SignBridge - Sign Language to Text</title>
 
 <style>
+
+* {
+    box-sizing: border-box;
+}
 
 body {
     margin: 0;
     font-family: Arial, sans-serif;
     background: #f4f7fb;
     color: #172033;
-    text-align: center;
 }
 
 header {
     background: #172033;
     color: white;
-    padding: 20px;
+    text-align: center;
+    padding: 22px 15px;
 }
 
 header h1 {
     margin: 0;
+    font-size: 30px;
+}
+
+header p {
+    margin: 8px 0 0;
+    opacity: 0.85;
 }
 
 .container {
+    width: 92%;
     max-width: 800px;
     margin: auto;
-    padding: 20px;
+    padding: 20px 0;
 }
 
-.camera {
+.camera-box {
     position: relative;
     width: 100%;
-    max-width: 640px;
-    margin: auto;
+    aspect-ratio: 4 / 3;
     background: black;
     border-radius: 18px;
     overflow: hidden;
 }
 
-video {
+#video {
     width: 100%;
-    display: block;
+    height: 100%;
+    object-fit: cover;
     transform: scaleX(-1);
 }
 
-canvas {
+#canvas {
     position: absolute;
-    left: 0;
     top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     transform: scaleX(-1);
@@ -61,52 +71,76 @@ canvas {
 
 .card {
     background: white;
-    padding: 20px;
-    margin-top: 20px;
+    margin-top: 18px;
+    padding: 22px;
     border-radius: 18px;
+    text-align: center;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.08);
 }
 
 #result {
+    min-height: 45px;
+    margin: 18px 0;
     font-size: 32px;
     font-weight: bold;
     color: #2563eb;
-    margin: 20px;
-}
-
-button {
-    padding: 14px 22px;
-    border: none;
-    border-radius: 10px;
-    background: #2563eb;
-    color: white;
-    font-size: 16px;
-    margin: 5px;
 }
 
 #status {
-    margin-top: 15px;
+    min-height: 25px;
     color: #555;
+    margin-top: 12px;
+}
+
+#confidence {
+    min-height: 22px;
+    color: #777;
+    margin-bottom: 12px;
+}
+
+button {
+    border: none;
+    border-radius: 10px;
+    padding: 14px 22px;
+    margin: 5px;
+    background: #2563eb;
+    color: white;
+    font-size: 16px;
+}
+
+button:active {
+    transform: scale(0.97);
+}
+
+.sentence {
+    min-height: 55px;
+    padding: 15px;
+    margin-top: 12px;
+    border-radius: 10px;
+    background: #f1f5f9;
+    font-size: 20px;
+    font-weight: bold;
+    word-wrap: break-word;
 }
 
 </style>
 
 <!-- MediaPipe Hands -->
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 
+<!-- MediaPipe Drawing -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
+<!-- MediaPipe Camera -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
-<!-- ONNX -->
-
+<!-- ONNX Runtime Web -->
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
 </head>
 
 
 <body>
-
 
 <header>
 
@@ -120,7 +154,9 @@ button {
 <div class="container">
 
 
-<div class="camera">
+<!-- CAMERA -->
+
+<div class="camera-box">
 
 <video
 id="video"
@@ -133,28 +169,53 @@ playsinline>
 </div>
 
 
+<!-- AI RESULT -->
+
 <div class="card">
 
 <h2>Recognized Sign</h2>
 
 <div id="result">
+Loading AI...
+</div>
 
-Starting...
+<div id="confidence">
+Please wait...
+</div>
+
+<button onclick="startCamera()">
+📷 Start Camera
+</button>
+
+<div id="status">
+Starting AI...
+</div>
 
 </div>
 
-<div id="status">
 
-Loading AI...
+<!-- SENTENCE -->
 
+<div class="card">
+
+<h2>📝 Sentence</h2>
+
+<div id="sentence" class="sentence">
+Your sentence will appear here.
 </div>
 
 <br>
 
-<button onclick="startCamera()">
+<button onclick="addSign()">
+➕ Add Sign
+</button>
 
-📷 Start Camera
+<button onclick="clearSentence()">
+🗑️ Clear
+</button>
 
+<button onclick="speakSentence()">
+🔊 Speak
 </button>
 
 </div>
@@ -165,10 +226,9 @@ Loading AI...
 
 <script>
 
-
-/* =====================================
+/* ==========================================
    ELEMENTS
-===================================== */
+========================================== */
 
 const video =
 document.getElementById("video");
@@ -182,20 +242,19 @@ canvas.getContext("2d");
 const result =
 document.getElementById("result");
 
+const confidence =
+document.getElementById("confidence");
+
 const status =
 document.getElementById("status");
 
+const sentenceBox =
+document.getElementById("sentence");
 
-/* =====================================
-   AI FILES
-===================================== */
 
-const MODEL_URL =
-"https://raw.githubusercontent.com/vaibhav-7-vg/signbridge/main/signbridge_model.onnx";
-
-const LABEL_URL =
-"https://raw.githubusercontent.com/vaibhav-7-vg/signbridge/main/labels.json";
-
+/* ==========================================
+   VARIABLES
+========================================== */
 
 let session = null;
 
@@ -203,450 +262,655 @@ let labels = [];
 
 let cameraStarted = false;
 
+let latestPrediction = "";
 
-/* =====================================
-   LOAD AI
-===================================== */
+let sentence = [];
+
+let predicting = false;
+
+
+/* ==========================================
+   MODEL SETTINGS
+========================================== */
+
+/*
+   The model and labels are in the
+   SAME folder as index.html.
+*/
+
+const MODEL_FILE =
+"signbridge_model.onnx";
+
+const LABEL_FILE =
+"labels.json";
+
+
+/* ==========================================
+   LOAD LABELS
+========================================== */
+
+async function loadLabels() {
+
+    const response =
+    await fetch(
+        LABEL_FILE + "?v=" + Date.now()
+    );
+
+    if (!response.ok) {
+
+        throw new Error(
+            "labels.json could not be loaded"
+        );
+
+    }
+
+    labels =
+    await response.json();
+
+
+    if (!Array.isArray(labels)) {
+
+        throw new Error(
+            "labels.json is not an array"
+        );
+
+    }
+
+
+    console.log(
+        "Labels:",
+        labels
+    );
+
+}
+
+
+/* ==========================================
+   LOAD ONNX MODEL
+========================================== */
+
+async function loadModel() {
+
+    status.innerText =
+    "Loading AI model...";
+
+
+    /*
+       Tell ONNX Runtime where its
+       WebAssembly files are located.
+    */
+
+    ort.env.wasm.wasmPaths =
+    "https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/";
+
+
+    session =
+    await ort.InferenceSession.create(
+        MODEL_FILE,
+        {
+            executionProviders: ["wasm"]
+        }
+    );
+
+
+    console.log(
+        "Model loaded successfully"
+    );
+
+
+    console.log(
+        "Inputs:",
+        session.inputNames
+    );
+
+
+    console.log(
+        "Outputs:",
+        session.outputNames
+    );
+
+}
+
+
+/* ==========================================
+   LOAD EVERYTHING
+========================================== */
 
 async function loadAI() {
 
-try {
+    try {
 
-status.innerText =
-"Loading labels...";
-
-
-const response =
-await fetch(LABEL_URL);
+        result.innerText =
+        "Loading AI...";
 
 
-if (!response.ok) {
-
-throw new Error(
-"labels.json could not be loaded"
-);
-
-}
+        await loadLabels();
 
 
-labels =
-await response.json();
+        status.innerText =
+        "Labels loaded ✅";
 
 
-status.innerText =
-"Loading AI model...";
+        await loadModel();
 
 
-session =
-await ort.InferenceSession.create(
-MODEL_URL
-);
+        status.innerText =
+        "AI model ready ✅";
 
 
-console.log(
-"AI MODEL LOADED",
-session
-);
+        result.innerText =
+        "Show your hand ✋";
 
 
-status.innerText =
-"AI model ready ✅";
-
-result.innerText =
-"Show your hand ✋";
+        confidence.innerText =
+        "Ready";
 
 
-}
+    }
 
-catch(error) {
+    catch (error) {
 
-console.error(
-"AI ERROR:",
-error
-);
+        console.error(
+            "AI LOADING ERROR:",
+            error
+        );
 
-status.innerText =
-"AI ERROR ❌";
 
-result.innerText =
-error.message;
+        status.innerText =
+        "AI loading error ❌";
 
-}
+
+        result.innerText =
+        error.message ||
+        String(error);
+
+
+        confidence.innerText =
+        "Check model and labels";
+
+    }
 
 }
 
 
-/* =====================================
-   MEDIAPIPE
-===================================== */
+/* ==========================================
+   MEDIAPIPE HANDS
+========================================== */
 
 const hands =
 new Hands({
 
-locateFile: function(file) {
+    locateFile: function(file) {
 
-return "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" + file;
+        return (
+            "https://cdn.jsdelivr.net/npm/@mediapipe/hands/" +
+            file
+        );
 
-}
+    }
 
 });
 
 
 hands.setOptions({
 
-maxNumHands: 1,
+    maxNumHands: 1,
 
-modelComplexity: 1,
+    modelComplexity: 1,
 
-minDetectionConfidence: 0.5,
+    minDetectionConfidence: 0.5,
 
-minTrackingConfidence: 0.5
+    minTrackingConfidence: 0.5
 
 });
 
 
-/* =====================================
-   HAND RESULT
-===================================== */
+/* ==========================================
+   HAND RESULTS
+========================================== */
 
 hands.onResults(
-function(results) {
+async function(results) {
 
 
-canvas.width =
-video.videoWidth;
+    /* Canvas size */
 
-canvas.height =
-video.videoHeight;
+    canvas.width =
+    video.videoWidth;
 
-
-ctx.clearRect(
-0,
-0,
-canvas.width,
-canvas.height
-);
+    canvas.height =
+    video.videoHeight;
 
 
-if (
-!results.multiHandLandmarks ||
-results.multiHandLandmarks.length === 0
-) {
-
-result.innerText =
-"Show your hand ✋";
-
-return;
-
-}
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
 
 
-/* Hand found */
+    /* No hand */
 
-result.innerText =
-"Hand detected 🤟";
+    if (
+        !results.multiHandLandmarks ||
+        results.multiHandLandmarks.length === 0
+    ) {
 
+        result.innerText =
+        "Show your hand ✋";
 
-const landmarks =
-results.multiHandLandmarks[0];
+        confidence.innerText =
+        "";
 
+        return;
 
-/* Draw */
-
-drawConnectors(
-ctx,
-landmarks,
-HAND_CONNECTIONS,
-{
-color: "#00FF00",
-lineWidth: 4
-}
-);
+    }
 
 
-drawLandmarks(
-ctx,
-landmarks,
-{
-color: "#FF0000",
-lineWidth: 2
-}
-);
+    /* Hand found */
+
+    const landmarks =
+    results.multiHandLandmarks[0];
 
 
-/* =====================================
-   FEATURES
-===================================== */
+    /* Draw connections */
 
-const features = [];
-
-
-for (
-let i = 0;
-i < landmarks.length;
-i++
-) {
-
-features.push(
-landmarks[i].x
-);
-
-features.push(
-landmarks[i].y
-);
-
-features.push(
-landmarks[i].z
-);
-
-}
+    drawConnectors(
+        ctx,
+        landmarks,
+        HAND_CONNECTIONS,
+        {
+            color: "#00FF00",
+            lineWidth: 4
+        }
+    );
 
 
-/* =====================================
-   AI PREDICTION
-===================================== */
+    /* Draw points */
 
-if (!session) {
-
-return;
-
-}
-
-
-try {
-
-
-const input =
-new ort.Tensor(
-"float32",
-Float32Array.from(features),
-[1,63]
-);
+    drawLandmarks(
+        ctx,
+        landmarks,
+        {
+            color: "#FF0000",
+            lineWidth: 2,
+            radius: 5
+        }
+    );
 
 
-const output =
-session.run({
+    /*
+       Don't predict until the
+       model is loaded.
+    */
 
-float_input:
-input
+    if (!session) {
 
-});
+        result.innerText =
+        "AI is loading...";
 
+        return;
 
-/*
-Important:
-session.run() is asynchronous.
-*/
-
-output.then(
-function(resultData) {
+    }
 
 
-const label =
-resultData["output_label"];
+    /*
+       Prevent overlapping predictions.
+    */
+
+    if (predicting) {
+
+        return;
+
+    }
 
 
-if (!label) {
-
-return;
-
-}
+    predicting = true;
 
 
-const index =
-Number(
-label.data[0]
-);
-/* =====================================
-   AI PREDICTION
-===================================== */
+    try {
 
-if (!session) {
 
-    result.innerText =
-        "AI model not loaded";
+        /* ======================================
+           CREATE 63 FEATURES
+        ====================================== */
 
-    return;
+        const features = [];
 
-}
 
-try {
+        for (
+            let i = 0;
+            i < landmarks.length;
+            i++
+        ) {
 
-    const input =
+            features.push(
+                landmarks[i].x
+            );
+
+            features.push(
+                landmarks[i].y
+            );
+
+            features.push(
+                landmarks[i].z
+            );
+
+        }
+
+
+        if (features.length !== 63) {
+
+            throw new Error(
+                "Expected 63 features, got " +
+                features.length
+            );
+
+        }
+
+
+        /* ======================================
+           CREATE INPUT TENSOR
+        ====================================== */
+
+        const input =
         new ort.Tensor(
             "float32",
             Float32Array.from(features),
             [1, 63]
         );
 
-    const output =
+
+        /* ======================================
+           RUN MODEL
+        ====================================== */
+
+        const output =
         await session.run({
 
-            "float_input": input
+            float_input:
+            input
 
         });
 
-    console.log(
-        "MODEL OUTPUT:",
-        output
-    );
 
-    const label =
-        output["output_label"];
-
-    if (!label) {
-
-        throw new Error(
-            "output_label not found"
+        console.log(
+            "Model output:",
+            output
         );
 
-    }
 
-    const index =
-        Number(label.data[0]);
+        /* ======================================
+           GET PREDICTION
+        ====================================== */
 
-    console.log(
-        "PREDICTED CLASS:",
-        index
-    );
+        const labelOutput =
+        output["output_label"];
 
-    if (
-        index >= 0 &&
-        index < labels.length
-    ) {
 
-        result.innerText =
-            labels[index];
+        if (!labelOutput) {
 
-        status.innerText =
+            throw new Error(
+                "output_label not found"
+            );
+
+        }
+
+
+        const classIndex =
+        Number(
+            labelOutput.data[0]
+        );
+
+
+        console.log(
+            "Predicted class:",
+            classIndex
+        );
+
+
+        /* ======================================
+           CLASS → LABEL
+        ====================================== */
+
+        if (
+            classIndex >= 0 &&
+            classIndex < labels.length
+        ) {
+
+            latestPrediction =
+            labels[classIndex];
+
+
+            result.innerText =
+            latestPrediction;
+
+
+            confidence.innerText =
             "AI prediction ✅";
 
+
+            status.innerText =
+            "Camera + AI running ✅";
+
+        }
+
+        else {
+
+            result.innerText =
+            "Unknown sign";
+
+            confidence.innerText =
+            "Unknown class";
+
+        }
+
+
     }
 
-} catch (error) {
+    catch (error) {
 
-    console.error(
-        "PREDICTION ERROR:",
-        error
-    );
+        console.error(
+            "PREDICTION ERROR:",
+            error
+        );
 
-    result.innerText =
+
+        result.innerText =
         "Prediction error ❌";
 
-    status.innerText =
+
+        confidence.innerText =
         error.message ||
         String(error);
 
-}
-/* =====================================
-   CAMERA
-===================================== */
+    }
+
+
+    predicting = false;
+
+});
+
+
+/* ==========================================
+   START CAMERA
+========================================== */
 
 async function startCamera() {
 
+    if (cameraStarted) {
 
-if (cameraStarted) {
+        return;
 
-return;
+    }
+
+
+    try {
+
+        status.innerText =
+        "Opening camera...";
+
+
+        const stream =
+        await navigator.mediaDevices
+        .getUserMedia({
+
+            video: {
+                facingMode: "user"
+            },
+
+            audio: false
+
+        });
+
+
+        video.srcObject =
+        stream;
+
+
+        await video.play();
+
+
+        const camera =
+        new Camera(
+
+            video,
+
+            {
+
+                onFrame:
+                async function() {
+
+                    await hands.send({
+
+                        image: video
+
+                    });
+
+                },
+
+                width: 640,
+
+                height: 480
+
+            }
+
+        );
+
+
+        camera.start();
+
+
+        cameraStarted =
+        true;
+
+
+        status.innerText =
+        "Camera running ✅";
+
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "CAMERA ERROR:",
+            error
+        );
+
+
+        status.innerText =
+        "Camera error ❌";
+
+
+        result.innerText =
+        error.message ||
+        String(error);
+
+    }
 
 }
 
 
-try {
+/* ==========================================
+   SENTENCE FUNCTIONS
+========================================== */
+
+function addSign() {
+
+    if (
+        latestPrediction === "" ||
+        latestPrediction === "Unknown sign"
+    ) {
+
+        return;
+
+    }
 
 
-status.innerText =
-"Opening camera...";
+    sentence.push(
+        latestPrediction
+    );
 
 
-const stream =
-await navigator.mediaDevices
-.getUserMedia({
-
-video: {
-facingMode: "user"
-},
-
-audio: false
-
-});
-
-
-video.srcObject =
-stream;
-
-
-await video.play();
-
-
-const camera =
-new Camera(
-
-video,
-
-{
-
-onFrame:
-async function() {
-
-await hands.send({
-
-image: video
-
-});
-
-},
-
-width: 640,
-
-height: 480
-
-}
-
-);
-
-
-camera.start();
-
-
-cameraStarted =
-true;
-
-
-status.innerText =
-"Camera running ✅";
-
-
-}
-
-catch(error) {
-
-console.error(
-"Camera error:",
-error
-);
-
-status.innerText =
-"Camera error ❌";
-
-result.innerText =
-error.message;
-
-}
+    sentenceBox.innerText =
+    sentence.join(" ");
 
 }
 
 
-/* =====================================
-   START
-===================================== */
+function clearSentence() {
+
+    sentence = [];
+
+
+    sentenceBox.innerText =
+    "Your sentence will appear here.";
+
+}
+
+
+function speakSentence() {
+
+    if (
+        sentence.length === 0
+    ) {
+
+        return;
+
+    }
+
+
+    const text =
+    sentence.join(" ");
+
+
+    const speech =
+    new SpeechSynthesisUtterance(
+        text
+    );
+
+
+    speech.lang =
+    "en-IN";
+
+
+    window.speechSynthesis.speak(
+        speech
+    );
+
+}
+
+
+/* ==========================================
+   START AI
+========================================== */
 
 loadAI();
 
-
 </script>
-
 
 </body>
 
-</html>
+    </html>
