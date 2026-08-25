@@ -626,13 +626,12 @@ async function(results) {
            RUN MODEL
         ====================================== */
 
-        const output =
-        await session.run({
+        const feeds = {};
 
-            float_input:
-            input
+feeds["float_input"] = input;
 
-        });
+const output =
+await session.run(feeds);
 
 
         console.log(
