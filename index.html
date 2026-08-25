@@ -417,16 +417,16 @@ async function loadAI() {
 
 
         status.innerText =
-        "AI loading error ❌";
+"AI ERROR: " + (
+    error.message ||
+    String(error)
+);
 
+result.innerText =
+"AI MODEL ERROR ❌";
 
-        result.innerText =
-        error.message ||
-        String(error);
-
-
-        confidence.innerText =
-        "Check model and labels";
+confidence.innerText =
+"See the message above";
 
     }
 
