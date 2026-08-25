@@ -813,11 +813,30 @@ async function startCamera() {
 }
 async function flipCamera() {
 
+    // Stop current video stream
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+    }
+
+    // Stop old camera processing
+    if (camera) {
+        try {
+            camera.stop();
+        } catch (error) {
+            console.log("Camera stop:", error);
+        }
+
+        camera = null;
+    }
+
+    // Switch camera
     currentFacingMode =
         currentFacingMode === "environment"
             ? "user"
             : "environment";
 
+    // Start the new camera
     await startCamera();
     }
 /* ==========================================
